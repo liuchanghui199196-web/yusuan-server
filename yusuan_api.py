@@ -17,7 +17,7 @@ except ImportError:
 # ─────────────────────────────────────────────
 # 服务端地址（部署后替换为实际URL）
 # ─────────────────────────────────────────────
-SERVER_URL = os.environ.get('YUSUAN_SERVER', 'https://yusuan-server.onrender.com')
+SERVER_URL = os.environ.get('YUSUAN_SERVER', 'http://154.8.149.148')
 
 # 本地Token存储路径
 _TOKEN_PATH = os.path.join(os.environ.get('APPDATA', '.'), '禹算', 'api_token.json')
