@@ -40,6 +40,7 @@ class User(db.Model):
     is_permanent = db.Column(db.Boolean, default=False)
     membership_expiry = db.Column(db.DateTime, nullable=True)
     membership_plan = db.Column(db.String(50), nullable=True)
+    activated_at = db.Column(db.DateTime, nullable=True)  # 会员激活时间
     trial_start = db.Column(db.DateTime, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     last_login = db.Column(db.DateTime, nullable=True)
@@ -104,6 +105,7 @@ class User(db.Model):
             return False
         plan = MEMBERSHIP_PLANS[plan_index]
         self.membership_plan = plan["name"]
+        self.activated_at = datetime.utcnow()
 
         if plan["days"] == -1:
             # 永久会员

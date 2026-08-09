@@ -71,7 +71,7 @@
             <table>
                 <tr>
                     <th>ID</th><th>用户名</th><th>邮箱</th><th>注册时间</th>
-                    <th>会员状态</th><th>最后登录</th><th>操作</th>
+                    <th>会员状态</th><th>激活时间</th><th>最后登录</th><th>操作</th>
                 </tr>
                 {% for user in users.items %}
                 <tr>
@@ -91,6 +91,7 @@
                         <span class="badge badge-red">已禁用</span>
                         {% endif %}
                     </td>
+                    <td>{{ user.activated_at.strftime('%Y-%m-%d %H:%M') if user.activated_at else '-' }}</td>
                     <td>{{ user.last_login.strftime('%m-%d %H:%M') if user.last_login else '-' }}</td>
                     <td>
                         <button class="btn-sm btn-toggle" onclick="toggleUser({{ user.id }})">
@@ -102,7 +103,7 @@
                 </tr>
                 {% endfor %}
                 {% if not users.items %}
-                <tr><td colspan="7" style="text-align:center;color:#999;padding:24px;">暂无用户</td></tr>
+                <tr><td colspan="8" style="text-align:center;color:#999;padding:24px;">暂无用户</td></tr>
                 {% endif %}
             </table>
             {% if users.pages > 1 %}
