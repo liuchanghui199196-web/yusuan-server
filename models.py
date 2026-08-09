@@ -114,12 +114,15 @@ class User(db.Model):
             # 限时会员
             self.is_permanent = False
             self.is_member = True
+            # 计算试用剩余天数（未过期时叠加到会员期限）
+            trial_remaining = self.get_trial_days_remaining()
+            total_days = plan["days"] + trial_remaining
             if self.membership_expiry and self.membership_expiry > datetime.utcnow():
                 # 续费：在现有到期时间基础上延长
                 self.membership_expiry = self.membership_expiry + timedelta(days=plan["days"])
             else:
-                # 新购/已过期：从当前时间开始
-                self.membership_expiry = datetime.utcnow() + timedelta(days=plan["days"])
+                # 新购/已过期：从当前时间开始（含试用剩余天数）
+                self.membership_expiry = datetime.utcnow() + timedelta(days=total_days)
         return True
 
     def to_dict(self):
