@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>订单管理 - 禹算管理后台</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #f0f2f5; }
+        .header { background: #1a1a2e; color: #fff; padding: 16px 24px; display: flex; justify-content: space-between; align-items: center; }
+        .header h1 { font-size: 20px; }
+        .header a { color: #aaa; text-decoration: none; font-size: 14px; }
+        .header a:hover { color: #fff; }
+        .nav { background: #16213e; padding: 0 24px; display: flex; gap: 0; }
+        .nav a { color: #aaa; text-decoration: none; padding: 12px 20px; font-size: 14px; transition: all 0.2s; border-bottom: 2px solid transparent; }
+        .nav a:hover, .nav a.active { color: #fff; border-bottom-color: #4a90d9; }
+        .container { max-width: 1200px; margin: 24px auto; padding: 0 24px; }
+        .toolbar { display: flex; gap: 8px; margin-bottom: 16px; }
+        .toolbar a { padding: 6px 14px; border: 1px solid #ddd; border-radius: 4px; text-decoration: none; color: #666; font-size: 13px; background: #fff; }
+        .toolbar a.active { background: #4a90d9; color: #fff; border-color: #4a90d9; }
+        .section { background: #fff; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { padding: 10px 16px; text-align: left; border-bottom: 1px solid #f0f0f0; font-size: 13px; }
+        th { background: #fafafa; color: #666; font-weight: 500; }
+        tr:hover { background: #f9f9f9; }
+        .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 12px; }
+        .badge-green { background: #e6f7ee; color: #52c41a; }
+        .badge-gray { background: #f0f0f0; color: #999; }
+        .badge-red { background: #fff1f0; color: #f5222d; }
+        .badge-yellow { background: #fffbe6; color: #faad14; }
+        .btn-sm { padding: 4px 10px; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; margin-right: 4px; }
+        .btn-confirm { background: #e6f7ee; color: #52c41a; }
+        .btn-confirm:hover { background: #b7eb8f; }
+        .btn-cancel { background: #f0f0f0; color: #666; }
+        .btn-cancel:hover { background: #e0e0e0; }
+        .pagination { padding: 16px; text-align: center; }
+        .pagination a { display: inline-block; padding: 6px 12px; margin: 0 4px; background: #fff; border: 1px solid #ddd; border-radius: 4px; text-decoration: none; color: #333; font-size: 13px; }
+        .pagination a.current { background: #4a90d9; color: #fff; border-color: #4a90d9; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>禹算管理后台</h1>
+        <a href="/admin/logout">退出登录</a>
+    </div>
+    <div class="nav">
+        <a href="/admin">仪表盘</a>
+        <a href="/admin/users">用户管理</a>
+        <a href="/admin/codes">激活码管理</a>
+        <a href="/admin/orders" class="active">订单管理</a>
+    </div>
+    <div class="container">
+        <div class="toolbar">
+            <a href="?status=" class="{{ 'active' if not status_filter else '' }}">全部</a>
+            <a href="?status=pending" class="{{ 'active' if status_filter == 'pending' else '' }}">待支付</a>
+            <a href="?status=paid" class="{{ 'active' if status_filter == 'paid' else '' }}">已支付</a>
+            <a href="?status=cancelled" class="{{ 'active' if status_filter == 'cancelled' else '' }}">已取消</a>
+        </div>
+        <div class="section">
+            <table>
+                <tr>
+                    <th>订单ID</th><th>用户</th><th>套餐</th><th>金额</th>
+                    <th>支付方式</th><th>状态</th><th>下单时间</th><th>支付时间</th><th>操作</th>
+                </tr>
+                {% for order in orders.items %}
+                <tr>
+                    <td>#{{ order.id }}</td>
+                    <td>{{ order.user.username if order.user else '-' }}</td>
+                    <td>{{ order.plan_name }}</td>
+                    <td style="font-weight:600;">&yen;{{ order.price }}</td>
+                    <td>{{ '微信' if order.payment_method == 'wechat' else '支付宝' }}</td>
+                    <td>
+                        {% if order.status == 'paid' %}
+                        <span class="badge badge-green">已支付</span>
+                        {% elif order.status == 'pending' %}
+                        <span class="badge badge-yellow">待支付</span>
+                        {% else %}
+                        <span class="badge badge-gray">已取消</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ order.created_at.strftime('%Y-%m-%d %H:%M') if order.created_at else '-' }}</td>
+                    <td>{{ order.paid_at.strftime('%Y-%m-%d %H:%M') if order.paid_at else '-' }}</td>
+                    <td>
+                        {% if order.status == 'pending' %}
+                        <button class="btn-sm btn-confirm" onclick="confirmOrder({{ order.id }})">确认支付</button>
+                        <button class="btn-sm btn-cancel" onclick="cancelOrder({{ order.id }})">取消</button>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+                {% if not orders.items %}
+                <tr><td colspan="9" style="text-align:center;color:#999;padding:24px;">暂无订单</td></tr>
+                {% endif %}
+            </table>
+            {% if orders.pages > 1 %}
+            <div class="pagination">
+                {% for p in orders.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+                    {% if p %}
+                        <a href="?page={{ p }}&status={{ status_filter }}" class="{{ 'current' if p == orders.page else '' }}">{{ p }}</a>
+                    {% else %}
+                        <span>...</span>
+                    {% endif %}
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <script>
+        function confirmOrder(orderId) {
+            if (!confirm('确认此订单已支付？将自动为用户激活对应会员。')) return;
+            fetch('/admin/orders/' + orderId + '/confirm', {method: 'POST'})
+                .then(r => r.json())
+                .then(data => { alert(data.message); location.reload(); });
+        }
+        function cancelOrder(orderId) {
+            if (!confirm('确定取消此订单？')) return;
+            fetch('/admin/orders/' + orderId + '/cancel', {method: 'POST'})
+                .then(r => r.json())
+                .then(data => { alert(data.message); location.reload(); });
+        }
+    </script>
+</body>
+</html>

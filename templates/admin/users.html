@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>用户管理 - 禹算管理后台</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #f0f2f5; }
+        .header { background: #1a1a2e; color: #fff; padding: 16px 24px; display: flex; justify-content: space-between; align-items: center; }
+        .header h1 { font-size: 20px; }
+        .header a { color: #aaa; text-decoration: none; font-size: 14px; }
+        .header a:hover { color: #fff; }
+        .nav { background: #16213e; padding: 0 24px; display: flex; gap: 0; }
+        .nav a { color: #aaa; text-decoration: none; padding: 12px 20px; font-size: 14px; transition: all 0.2s; border-bottom: 2px solid transparent; }
+        .nav a:hover, .nav a.active { color: #fff; border-bottom-color: #4a90d9; }
+        .container { max-width: 1200px; margin: 24px auto; padding: 0 24px; }
+        .toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+        .search-box { display: flex; gap: 8px; }
+        .search-box input { padding: 8px 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; width: 240px; outline: none; }
+        .search-box button { padding: 8px 16px; background: #4a90d9; color: #fff; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; }
+        .section { background: #fff; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { padding: 10px 16px; text-align: left; border-bottom: 1px solid #f0f0f0; font-size: 13px; }
+        th { background: #fafafa; color: #666; font-weight: 500; }
+        tr:hover { background: #f9f9f9; }
+        .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 12px; }
+        .badge-green { background: #e6f7ee; color: #52c41a; }
+        .badge-blue { background: #e6f0ff; color: #4a90d9; }
+        .badge-gray { background: #f0f0f0; color: #999; }
+        .badge-red { background: #fff1f0; color: #f5222d; }
+        .btn-sm { padding: 4px 10px; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; margin-right: 4px; }
+        .btn-toggle { background: #fff3e0; color: #e65100; }
+        .btn-toggle:hover { background: #ffe0b2; }
+        .btn-member { background: #e6f0ff; color: #4a90d9; }
+        .btn-member:hover { background: #cce0ff; }
+        .btn-reset { background: #f0f0f0; color: #666; }
+        .btn-reset:hover { background: #e0e0e0; }
+        .pagination { padding: 16px; text-align: center; }
+        .pagination a { display: inline-block; padding: 6px 12px; margin: 0 4px; background: #fff; border: 1px solid #ddd; border-radius: 4px; text-decoration: none; color: #333; font-size: 13px; }
+        .pagination a.current { background: #4a90d9; color: #fff; border-color: #4a90d9; }
+        .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 100; justify-content: center; align-items: center; }
+        .modal { background: #fff; padding: 24px; border-radius: 8px; width: 360px; }
+        .modal h3 { margin-bottom: 16px; }
+        .modal select, .modal input { width: 100%; padding: 8px; margin-bottom: 12px; border: 1px solid #ddd; border-radius: 4px; }
+        .modal .btn-row { display: flex; gap: 8px; justify-content: flex-end; }
+        .modal button { padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer; }
+        .modal .btn-cancel { background: #f0f0f0; color: #666; }
+        .modal .btn-confirm { background: #4a90d9; color: #fff; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>禹算管理后台</h1>
+        <a href="/admin/logout">退出登录</a>
+    </div>
+    <div class="nav">
+        <a href="/admin">仪表盘</a>
+        <a href="/admin/users" class="active">用户管理</a>
+        <a href="/admin/codes">激活码管理</a>
+        <a href="/admin/orders">订单管理</a>
+    </div>
+    <div class="container">
+        <div class="toolbar">
+            <form class="search-box" method="GET">
+                <input type="text" name="search" placeholder="搜索用户名或邮箱..." value="{{ search }}">
+                <button type="submit">搜索</button>
+            </form>
+        </div>
+        <div class="section">
+            <table>
+                <tr>
+                    <th>ID</th><th>用户名</th><th>邮箱</th><th>注册时间</th>
+                    <th>会员状态</th><th>最后登录</th><th>操作</th>
+                </tr>
+                {% for user in users.items %}
+                <tr>
+                    <td>{{ user.id }}</td>
+                    <td>{{ user.username }}</td>
+                    <td>{{ user.email }}</td>
+                    <td>{{ user.created_at.strftime('%Y-%m-%d') if user.created_at else '-' }}</td>
+                    <td>
+                        {% if user.is_permanent %}
+                        <span class="badge badge-green">永久会员</span>
+                        {% elif user.is_member %}
+                        <span class="badge badge-blue">{{ user.membership_plan or '会员' }}</span>
+                        {% else %}
+                        <span class="badge badge-gray">试用/过期</span>
+                        {% endif %}
+                        {% if not user.is_active_user %}
+                        <span class="badge badge-red">已禁用</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ user.last_login.strftime('%m-%d %H:%M') if user.last_login else '-' }}</td>
+                    <td>
+                        <button class="btn-sm btn-toggle" onclick="toggleUser({{ user.id }})">
+                            {{ '启用' if not user.is_active_user else '禁用' }}
+                        </button>
+                        <button class="btn-sm btn-member" onclick="showMemberModal({{ user.id }})">设置会员</button>
+                        <button class="btn-sm btn-reset" onclick="resetPassword({{ user.id }})">重置密码</button>
+                    </td>
+                </tr>
+                {% endfor %}
+                {% if not users.items %}
+                <tr><td colspan="7" style="text-align:center;color:#999;padding:24px;">暂无用户</td></tr>
+                {% endif %}
+            </table>
+            {% if users.pages > 1 %}
+            <div class="pagination">
+                {% for p in users.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+                    {% if p %}
+                        <a href="?page={{ p }}&search={{ search }}" class="{{ 'current' if p == users.page else '' }}">{{ p }}</a>
+                    {% else %}
+                        <span>...</span>
+                    {% endif %}
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- 设置会员弹窗 -->
+    <div class="modal-overlay" id="memberModal">
+        <div class="modal">
+            <h3>设置会员套餐</h3>
+            <form id="memberForm">
+                <input type="hidden" id="memberUserId" name="user_id">
+                <select name="plan_index" id="planSelect">
+                    <option value="0">5天会员 (¥5)</option>
+                    <option value="1">1个月会员 (¥30)</option>
+                    <option value="2">3个月会员 (¥81)</option>
+                    <option value="3">6个月会员 (¥153)</option>
+                    <option value="4">1年会员 (¥288)</option>
+                    <option value="5">2年会员 (¥540)</option>
+                    <option value="6">永久会员 (¥702)</option>
+                </select>
+                <div class="btn-row">
+                    <button type="button" class="btn-cancel" onclick="closeMemberModal()">取消</button>
+                    <button type="button" class="btn-confirm" onclick="submitMember()">确认</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        function toggleUser(userId) {
+            fetch('/admin/users/' + userId + '/toggle', {method: 'POST'})
+                .then(r => r.json())
+                .then(data => { alert(data.message); location.reload(); });
+        }
+        function showMemberModal(userId) {
+            document.getElementById('memberUserId').value = userId;
+            document.getElementById('memberModal').style.display = 'flex';
+        }
+        function closeMemberModal() {
+            document.getElementById('memberModal').style.display = 'none';
+        }
+        function submitMember() {
+            const userId = document.getElementById('memberUserId').value;
+            const planIndex = document.getElementById('planSelect').value;
+            const formData = new FormData();
+            formData.append('plan_index', planIndex);
+            fetch('/admin/users/' + userId + '/set-member', {method: 'POST', body: formData})
+                .then(r => r.json())
+                .then(data => { alert(data.message); location.reload(); });
+        }
+        function resetPassword(userId) {
+            const newPwd = prompt('请输入新密码（留空则重置为123456）：');
+            if (newPwd === null) return;
+            const formData = new FormData();
+            formData.append('new_password', newPwd || '123456');
+            fetch('/admin/users/' + userId + '/reset-password', {method: 'POST', body: formData})
+                .then(r => r.json())
+                .then(data => alert(data.message));
+        }
+    </script>
+</body>
+</html>
