@@ -113,8 +113,10 @@ class YuSuanAPI:
     def check_server(self):
         """检查服务器是否可用"""
         try:
-            success, data = self._request('GET', '/api/health')
-            return success
+            url = f"{self.server_url}/api/health"
+            resp = requests.get(url, timeout=10)
+            result = resp.json()
+            return result.get('status') == 'ok' or result.get('success', False)
         except Exception:
             return False
 
