@@ -128,12 +128,12 @@ def send_email(to_email, subject, body, is_html=False):
         return False
 
 
-def send_verification_code_email(email, code):
+def send_verification_code_email(email, code, purpose="注册"):
     """发送验证码邮件"""
-    subject = "【禹算】注册验证码"
+    subject = f"【禹算】{purpose}验证码"
     body = f"""您好！
 
-您正在注册禹算账户，验证码为：{code}
+您正在进行禹算{purpose}操作，验证码为：{code}
 
 验证码5分钟内有效，请勿泄露给他人。
 
@@ -202,9 +202,91 @@ def api_send_code():
     db.session.commit()
 
     # 发送邮件
-    send_verification_code_email(email, code)
+    send_verification_code_email(email, code, purpose="注册")
 
     return jsonify({"success": True, "message": "验证码已发送"})
+
+
+# ---------- 发送重置密码验证码 ----------
+@app.route('/api/send-reset-code', methods=['POST'])
+def api_send_reset_code():
+    data = request.get_json()
+    if not data:
+        return jsonify({"success": False, "message": "请求数据为空"}), 400
+
+    email = data.get('email', '').strip()
+    if not email or '@' not in email:
+        return jsonify({"success": False, "message": "邮箱格式不正确"}), 400
+
+    # 检查邮箱是否已注册（重置密码需要邮箱已注册）
+    user = User.query.filter_by(email=email).first()
+    if not user:
+        return jsonify({"success": False, "message": "该邮箱未注册"}), 404
+
+    # 检查发送频率（60秒内只能发一次）
+    recent = EmailVerification.query.filter(
+        EmailVerification.email == email,
+        EmailVerification.created_at > datetime.utcnow() - timedelta(seconds=60)
+    ).first()
+    if recent:
+        return jsonify({"success": False, "message": "发送过于频繁，请60秒后重试"}), 429
+
+    # 生成6位验证码
+    code = f"{random.randint(0, 999999):06d}"
+    verification = EmailVerification(
+        email=email,
+        code=code,
+        purpose='reset_password',
+        expires_at=datetime.utcnow() + timedelta(minutes=5),
+    )
+    db.session.add(verification)
+    db.session.commit()
+
+    # 发送邮件
+    send_verification_code_email(email, code, purpose="重置密码")
+
+    return jsonify({"success": True, "message": "验证码已发送"})
+
+
+# ---------- 重置密码 ----------
+@app.route('/api/reset-password', methods=['POST'])
+def api_reset_password():
+    data = request.get_json()
+    if not data:
+        return jsonify({"success": False, "message": "请求数据为空"}), 400
+
+    email = data.get('email', '').strip()
+    code = data.get('code', '').strip()
+    new_password = data.get('new_password', '')
+
+    if not all([email, code, new_password]):
+        return jsonify({"success": False, "message": "请填写所有字段"}), 400
+    if len(new_password) < 4:
+        return jsonify({"success": False, "message": "新密码至少4个字符"}), 400
+
+    # 查找用户
+    user = User.query.filter_by(email=email).first()
+    if not user:
+        return jsonify({"success": False, "message": "该邮箱未注册"}), 404
+
+    # 验证验证码（支持reset_password用途）
+    verification = EmailVerification.query.filter(
+        EmailVerification.email == email,
+        EmailVerification.code == code,
+        EmailVerification.is_used == False,
+    ).order_by(EmailVerification.created_at.desc()).first()
+
+    if not verification:
+        return jsonify({"success": False, "message": "验证码不正确"}), 400
+    if verification.expires_at < datetime.utcnow():
+        return jsonify({"success": False, "message": "验证码已过期"}), 400
+
+    # 更新密码
+    user.set_password(new_password)
+    verification.is_used = True
+    db.session.commit()
+
+    return jsonify({"success": True, "message": "密码重置成功"})
 
 
 # ---------- 注册 ----------
@@ -227,9 +309,9 @@ def api_register():
     if len(password) < 4:
         return jsonify({"success": False, "message": "密码至少4个字符"}), 400
 
-    # 验证邮箱验证码
+    # 验证邮箱验证码（注册用途）
     verification = EmailVerification.query.filter_by(
-        email=email, code=code, is_used=False
+        email=email, code=code, purpose='register', is_used=False
     ).order_by(EmailVerification.created_at.desc()).first()
 
     if not verification:
